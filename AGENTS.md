@@ -1,68 +1,56 @@
-# Repository Guidelines
+# Agent Map
 
-## Project Structure & Module Organization
+`autoresearch-modal` is a narrow Modal wrapper around `karpathy/autoresearch`. The repository itself is the system of record for agent context. Keep this file short and use it as a map.
 
-This workspace is `autoresearch-modal`, an `autoresearch`-focused Modal wrapper. Keep it narrow: the repo exists to prepare a persistent upstream checkout, run baseline experiments on Modal, and support bounded Claude-driven runs against `karpathy/autoresearch`.
+## Read Order
 
-- `agent_sandbox/autoresearch_app.py`: the dedicated Modal app and all public Modal entrypoints.
-- `agent_sandbox/autoresearch/`: pure helpers for run tags, path layout, log parsing, and prompt construction.
-- `agent_sandbox/config/settings.py`: small Pydantic settings surface for the autoresearch runtime.
-- `agent_sandbox/utils/cli.py`: Claude CLI user/env helpers reused by the Modal runtime.
-- `docs/autoresearch-modal.md`: operational runbook with exact commands and caveats.
-- `.agent/plans/autoresearch_modal/` and `.agent/tasks/autoresearch_modal/`: the active plan and task pack for this migration.
+1. `AGENTS.md`
+2. `ARCHITECTURE.md`
+3. `docs/product-specs`
+4. `docs/design-docs/index.md`
+5. `docs/PLANS.md`
+6. `docs/exec-plans/index.md`
+7. `docs/references/index.md`
+8. `docs/generated/db-schema.md` when schema or state questions matter
+9. Relevant code and tests
 
-Do not reintroduce the old generic sandbox/controller/Ralph surface unless the user explicitly asks for it.
+## Canonical Path Map
 
-## Build, Test, and Development Commands
+- Product intent: `docs/product-specs`
+- Architecture and design: `ARCHITECTURE.md`, `docs/design-docs/`, `docs/DESIGN.md`
+- Plans, tasks, and debt: `docs/exec-plans/`, `docs/PLANS.md`
+- Operational references: `docs/references/`
+- Reliability, quality, and security: `docs/RELIABILITY.md`, `docs/QUALITY_SCORE.md`, `docs/SECURITY.md`
+- Generated schema artifacts: `docs/generated/`
 
-This is a **uv-based project**. Always activate the virtual environment before running commands.
+## Routing By Work Type
 
-### Setup
+- Runtime or Modal execution work: read `ARCHITECTURE.md`, `docs/references/autoresearch-modal-runbook.md`, and any relevant file under `docs/exec-plans/active/`
+- Product or workflow changes: read the product specs directory and `docs/PRODUCT_SENSE.md`
+- Design or repository-governance work: read `docs/design-docs/core-beliefs.md`, `docs/DESIGN.md`, and `docs/exec-plans/index.md`
+- Reliability or validation work: read `docs/RELIABILITY.md`, `docs/QUALITY_SCORE.md`, and the relevant tests
+- Security or secrets work: read `docs/SECURITY.md` and `agent_sandbox/config/settings.py`
 
-- `source .venv/bin/activate` — activate the virtual environment.
-- `uv sync --group dev --python 3.11` — sync local dependencies and keep Modal CLI calls on Python 3.11.
+## Working Rules
 
-### Running
+- Keep the scope narrow: persistent upstream checkout, cache prep, direct baseline runs, and bounded Claude-driven runs.
+- Prefer durable repo-local docs over prompt-only guidance.
+- New complex work starts under `docs/exec-plans/active/<slug>/` and moves to `docs/exec-plans/completed/` when finished.
+- Keep `AGENTS.md` map-style. Put lasting detail in the docs tree, not here.
+- Do not reintroduce generic sandbox or controller surfaces unless the user explicitly changes scope.
 
-- `uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::probe_autoresearch_environment` — verify the Modal image has `python`, `git`, and `claude`.
-- `uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::prepare_autoresearch_run --run-tag <tag> --num-shards 10` — prepare persistent workspace and cache state.
-- `uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::run_autoresearch_baseline --run-tag <tag>` — run one direct GPU baseline.
-- `uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::run_autoresearch_with_claude --run-tag <tag>` — run the bounded Claude-driven baseline flow.
+## Deprecated Layouts
 
-### Testing
+- `docs/product-specs` is the only home for product specifications.
+- `docs/exec-plans/` is the only home for execution plans and task tracking.
+- Do not add new top-level spec trees or hidden plan/task trees.
 
-- `uv run pytest` — run the full local test suite.
-- `uv run pytest tests/test_autoresearch_core.py -q` — run focused helper coverage.
-
-## Coding Style & Naming Conventions
-
-Target Python 3.11+ features only when they remain compatible with Modal runtime images. Follow PEP 8 defaults: 4-space indentation, snake_case for functions and variables, UpperCamelCase for classes. Keep module-level constants uppercase. Prefer type hints on new functions, and keep environment and helper names explicit.
-
-## Pre-commit Hooks
-
-The repository uses Ruff for linting and formatting.
-
-### Required: Run After Making Changes
-
-Always run the Ruff linter and formatter after making code changes:
+## Validation
 
 ```bash
+source .venv/bin/activate
 uv run ruff check --fix .
 uv run ruff format .
+uv run pytest
+uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::probe_autoresearch_environment
 ```
-
-## Testing Guidelines
-
-Keep tests focused on deterministic helpers unless the user explicitly asks for heavier integration coverage. Before submitting changes, rerun Ruff, the local pytest suite, and the relevant Modal commands for the autoresearch flow you touched. Mark genuinely long-running checks with `@pytest.mark.slow`. Capture exact command output details in the final handoff.
-
-## Commit & Pull Request Guidelines
-
-Existing commits in ancestor repos used short, present-tense statements. Continue that style if the repo is reinitialized for git later. For PRs, include a concise summary, exact reproduction commands, and validation results.
-
-## Security & Secrets
-
-Never hardcode API keys. Anthropic credentials must stay in the Modal secret named `anthropic-secret` with key `ANTHROPIC_API_KEY` unless the user explicitly changes the configured secret name in `agent_sandbox/config/settings.py`. Avoid committing generated artifacts that might expose credentials or user data.
-
-## ExecPlans
-
-When writing complex features or refactoring, create or update an ExecPlan as described in `.agent/plans/Plan.md`. For this workspace, continue updating `.agent/plans/autoresearch_modal/PLAN_autoresearch_modal.md` and its task files instead of creating disconnected plan packs unless the user explicitly changes scope. Place any temporary research or clones in a `.gitignored` subdirectory of `.agent/`.
