@@ -1,15 +1,8 @@
-# autoresearch-modal
+# Autoresearch Modal Runbook
 
 `autoresearch-modal` is a dedicated Modal wrapper for running [karpathy/autoresearch](https://github.com/karpathy/autoresearch.git) without vendoring the upstream project into this repository.
 
-The operational entry module is:
-
-- `agent_sandbox.autoresearch_app`
-
-It clones the upstream repo into a persistent Modal workspace volume, keeps `~/.cache/autoresearch` on a separate persistent cache volume, and supports both:
-
-- a deterministic direct baseline run
-- a bounded Claude-driven baseline run that exercises the Claude CLI and git workflow on Modal
+Read this after `AGENTS.md`, `ARCHITECTURE.md`, and the product spec when you need exact operator commands.
 
 ## Requirements
 
@@ -32,7 +25,7 @@ uv run --python 3.11 modal setup
 uv run --python 3.11 modal secret create anthropic-secret ANTHROPIC_API_KEY=your_key_here
 ```
 
-## Runtime layout
+## Runtime Layout
 
 Default settings live in `agent_sandbox/config/settings.py`.
 
@@ -75,7 +68,7 @@ This:
 - checks out `autoresearch/mar16smoke`
 - creates `results.tsv` if needed
 - runs `python prepare.py --num-shards 10` when `~/.cache/autoresearch` is not ready
-- keeps Triton and TorchInductor caches under the mounted cache volume instead of `/home/claude/.triton`
+- keeps Triton and TorchInductor caches under the mounted cache volume
 
 ### 3. Run one direct baseline experiment
 
@@ -100,7 +93,7 @@ This path:
 - uses git CLI directly inside the cloned repo
 - performs exactly one baseline run and stops
 
-## Convenience local entrypoint
+## Convenience Local Entrypoint
 
 You can also use the app’s local entrypoint:
 
@@ -112,7 +105,7 @@ uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode baseline
 uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode claude-baseline --run-tag mar16claude
 ```
 
-## Notes and constraints
+## Notes And Constraints
 
 - Upstream `autoresearch` currently uses `master`, not `main`.
 - The direct baseline path does not require `ANTHROPIC_API_KEY`; the Claude path does.
@@ -121,4 +114,4 @@ uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode claude-b
 - `prepare.py` writes to `~/.cache/autoresearch`, so the cache volume must stay mounted at that exact path for compatibility with upstream code.
 - `TRITON_CACHE_DIR` and `TORCHINDUCTOR_CACHE_DIR` are redirected into the mounted cache volume. That fixes the non-root permission issue that originally blocked baseline runs.
 - In this workspace, Modal CLI calls were reliable under Python 3.11. A Python 3.14-created `.venv` triggered a local `grpclib` assertion before requests reached Modal.
-- The root wrapper repo currently has no `.git` directory by design. Git operations that matter happen inside the cloned upstream repo on the workspace volume.
+- The wrapper repo is versioned locally, but experiment git state that matters lives inside the cloned upstream repo on the workspace volume.

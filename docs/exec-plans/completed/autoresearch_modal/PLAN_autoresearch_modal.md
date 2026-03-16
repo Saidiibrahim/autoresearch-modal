@@ -1,5 +1,7 @@
 # ExecPlan: autoresearch-modal
 
+Historical note: this completed plan was migrated into the canonical `docs/exec-plans/` layout on 2026-03-16. The work below reflects the original repository cleanup and runtime proof, with path references repaired for the new docs taxonomy.
+
 ## Purpose / Big Picture
 
 Finish repurposing this old wrapper repo into `autoresearch-modal`. The final repo should have one clear job: clone `karpathy/autoresearch` into persistent Modal volumes, prepare the shared cache, run direct GPU baselines, and run bounded Claude-driven baselines against upstream branches.
@@ -21,8 +23,8 @@ Finish repurposing this old wrapper repo into `autoresearch-modal`. The final re
 - Observation: Routing `TRITON_CACHE_DIR` and `TORCHINDUCTOR_CACHE_DIR` into the mounted cache volume removed the startup blocker and remains required after the cleanup.
 - Evidence: The post-cleanup direct and Claude-driven baselines both completed successfully with parsed summaries and appended `results.tsv` rows.
 
-- Observation: The root wrapper repo intentionally has no `.git` directory.
-- Evidence: User instruction for this migration explicitly states the workspace `.git` was removed; the only git operations that matter now happen inside the cloned upstream repo on the Modal workspace volume.
+- Observation: Experiment git operations that affect run branches still happen inside the cloned upstream repo on the Modal workspace volume.
+- Evidence: The runtime bootstrap creates and manages `autoresearch/<run_tag>` inside `/home/claude/workspaces/autoresearch/<run_tag>/repo`.
 
 - Observation: Once the legacy test surface and incompatible dependencies were removed, full local pytest collection became clean again.
 - Evidence: `uv run pytest -q` now reports `13 passed in 0.21s`.
@@ -83,7 +85,7 @@ The wrapper’s job is to supply a stable Modal image, persistent workspace/cach
 
 ## Concrete Steps
 
-Task files live in `/Users/ibrahimsaidi/Desktop/Builds/Modal_Builds/rafiki-v0.6.0/.agent/tasks/autoresearch_modal/`.
+Task files live in `docs/exec-plans/completed/autoresearch_modal/tasks/`.
 
 ## Progress
 
@@ -103,4 +105,4 @@ Use unit tests for pure helpers such as branch naming, results file bootstrappin
 
 ## Constraints & Considerations
 
-The Claude path depends on a valid Modal secret providing `ANTHROPIC_API_KEY`. The upstream training repo expects a single NVIDIA GPU and a persistent `~/.cache/autoresearch` directory. Modal CLI commands in this workspace should continue to use Python 3.11 locally. The wrapper repo itself has no git history by design; upstream git state on the mounted workspace volume is the operational source of truth.
+The Claude path depends on a valid Modal secret providing `ANTHROPIC_API_KEY`. The upstream training repo expects a single NVIDIA GPU and a persistent `~/.cache/autoresearch` directory. Modal CLI commands in this workspace should continue to use Python 3.11 locally. The wrapper repo is versioned locally, but the experiment git state that matters still lives inside the cloned upstream repo on the mounted workspace volume.

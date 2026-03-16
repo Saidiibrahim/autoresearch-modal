@@ -1,7 +1,7 @@
 ---
 task_id: 01
 plan_id: PLAN_autoresearch_modal
-plan_file: ../../plans/autoresearch_modal/PLAN_autoresearch_modal.md
+plan_file: ../PLAN_autoresearch_modal.md
 title: Audit current repo and upstream autoresearch contract
 phase: Phase 1 - Discovery and Architecture
 ---

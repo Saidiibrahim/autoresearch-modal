@@ -1,7 +1,7 @@
 ---
 task_id: 03
 plan_id: PLAN_autoresearch_modal
-plan_file: ../../plans/autoresearch_modal/PLAN_autoresearch_modal.md
+plan_file: ../PLAN_autoresearch_modal.md
 title: Document autoresearch setup and add test coverage
 phase: Phase 3 - Docs and Verification
 ---

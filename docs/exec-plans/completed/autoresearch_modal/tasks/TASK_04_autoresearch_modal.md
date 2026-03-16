@@ -1,7 +1,7 @@
 ---
 task_id: 04
 plan_id: PLAN_autoresearch_modal
-plan_file: ../../plans/autoresearch_modal/PLAN_autoresearch_modal.md
+plan_file: ../PLAN_autoresearch_modal.md
 title: Run formatting and Modal smoke validation
 phase: Phase 4 - Final Proof
 ---

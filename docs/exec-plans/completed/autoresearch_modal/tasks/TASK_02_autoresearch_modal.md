@@ -1,7 +1,7 @@
 ---
 task_id: 02
 plan_id: PLAN_autoresearch_modal
-plan_file: ../../plans/autoresearch_modal/PLAN_autoresearch_modal.md
+plan_file: ../PLAN_autoresearch_modal.md
 title: Implement dedicated autoresearch Modal runtime
 phase: Phase 2 - Runtime and Bootstrap
 ---

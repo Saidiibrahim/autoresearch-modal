@@ -46,7 +46,6 @@ AUTORESEARCH_VOLUMES = {
     _settings.autoresearch_cache_root: AUTORESEARCH_CACHE_VOLUME,
 }
 AUTORESEARCH_IGNORE = [
-    ".agent",
     ".git",
     ".mypy_cache",
     ".pytest_cache",

@@ -1,7 +1,7 @@
 ---
 task_id: 05
 plan_id: PLAN_autoresearch_modal
-plan_file: ../../plans/autoresearch_modal/PLAN_autoresearch_modal.md
+plan_file: ../PLAN_autoresearch_modal.md
 title: Retire legacy repo surface and revalidate the cleaned project
 phase: Phase 5 - Cleanup and Closure
 ---
