@@ -3,6 +3,8 @@
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.serena/
+.vscode/
 build/
 dist/
 *.egg-info/
@@ -12,3 +14,7 @@ __pycache__/
 .DS_Store
 results.tsv
 run.log
+worktrees/
+results/
+queue/
+dev/
