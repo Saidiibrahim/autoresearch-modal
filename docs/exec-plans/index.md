@@ -11,7 +11,9 @@ Execution plans make multi-step work legible to future agents. Keep active work 
 ## Completed
 
 - `docs/exec-plans/completed/2026-03-16-harness-knowledge-migration.md`
+- `docs/exec-plans/completed/autoresearch_agent_loop_modal/PLAN_autoresearch_agent_loop_modal.md`
 - `docs/exec-plans/completed/autoresearch_modal/PLAN_autoresearch_modal.md`
+- `docs/exec-plans/completed/autoresearch_vendored_layout_modal/PLAN_autoresearch_vendored_layout_modal.md`
 
 ## Debt
 

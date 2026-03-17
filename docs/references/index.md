@@ -2,7 +2,7 @@
 
 ## Repository References
 
-- `docs/references/autoresearch-modal-runbook.md` - exact commands, runtime layout, and operating caveats
+- `docs/references/autoresearch-modal-runbook.md` - exact commands, vendored root layout, `program.md` control flow, and operating caveats
 
 ## External References
 

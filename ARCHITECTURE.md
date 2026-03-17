@@ -2,21 +2,23 @@
 
 ## Purpose
 
-`autoresearch-modal` exists to make one workflow legible and repeatable for coding agents:
+`autoresearch-modal` exists to make the upstream `karpathy/autoresearch` workflow legible and repeatable on Modal:
 
-1. prepare a persistent checkout of `karpathy/autoresearch` on Modal
-2. warm and reuse the upstream cache
-3. run one direct GPU baseline
-4. optionally run one bounded Claude-driven baseline in the same checkout
+1. seed a persistent workspace from the vendored `karpathy/autoresearch` project files
+2. surface the human-controlled `program.md` inside that checkout
+3. warm and reuse the upstream cache
+4. run one direct GPU baseline smoke
+5. run a Claude-driven agent loop that follows the upstream research contract
+6. inspect the resulting logs, results, and git state through repo-local entrypoints
 
-This repo does not own the research code itself. It owns orchestration, guardrails, validation, and repository-local knowledge.
+This repo now carries the upstream research files at the root and adds orchestration, guardrails, validation, and repository-local knowledge around them.
 
 ## Module Map
 
 | Path | Responsibility |
 | --- | --- |
 | `agent_sandbox/autoresearch_app.py` | Modal app, image, volumes, public entrypoints, and subprocess orchestration |
-| `agent_sandbox/autoresearch/core.py` | Pure helpers for path layout, run tags, results rows, prompt construction, and training-log parsing |
+| `agent_sandbox/autoresearch/core.py` | Shared helpers for path layout, vendored-root seeding, results rows, prompt construction, and training-log parsing |
 | `agent_sandbox/config/settings.py` | Typed runtime configuration and Modal secret wiring |
 | `agent_sandbox/utils/cli.py` | Claude CLI environment and user helpers reused inside Modal |
 | `tests/` | Deterministic coverage for settings and pure helpers |
@@ -24,12 +26,15 @@ This repo does not own the research code itself. It owns orchestration, guardrai
 
 ## Runtime Boundaries
 
-- The wrapper repo is the knowledge and orchestration layer.
-- The upstream `karpathy/autoresearch` checkout lives inside the Modal workspace volume.
+- The repo root contains the vendored upstream research files plus the Modal-specific orchestration/docs layers.
+- Each run tag gets a persistent workspace repo seeded from an explicit upstream-root allowlist:
+  - `.gitignore`, `.python-version`, `README.md`, `analysis.ipynb`, `prepare.py`, `program.md`, `progress.png`, `pyproject.toml`, `train.py`, `uv.lock`
+- Wrapper-owned top-level surfaces (`AGENTS.md`, `ARCHITECTURE.md`, `agent_sandbox/`, `docs/`, `scripts/`, `tests/`) are intentionally excluded from the seeded repo.
 - Persistent state is file-based:
-  - workspace volume at `/home/claude/workspaces/autoresearch`
-  - cache volume at `/home/claude/.cache/autoresearch`
-  - upstream `results.tsv` inside each prepared checkout
+  - workspace volume at `/home/agent/workspaces/autoresearch`
+  - cache volume at `/home/agent/.cache/autoresearch`
+  - upstream `program.md`, `results.tsv`, and `run.log` inside each prepared checkout
+  - wrapper-owned `prepare.log`, `agent.log`, and `modal-run-state.json` inside each run root
 - There is no first-party application database in this repo. The generated schema artifact currently snapshots the typed runtime settings surface instead.
 
 ## Execution Flow
@@ -37,11 +42,13 @@ This repo does not own the research code itself. It owns orchestration, guardrai
 1. Load `Settings` from environment and Modal secrets.
 2. Build the Modal image with Python, git, Node, and Claude CLI available.
 3. Mount persistent workspace and cache volumes.
-4. Clone or refresh the upstream repo into `<workspace>/<run_tag>/repo`.
-5. Ensure the branch `autoresearch/<run_tag>` exists from upstream `master`.
-6. Warm the upstream cache with `prepare.py` when needed.
-7. Run `train.py` directly or via a bounded Claude prompt.
-8. Parse the upstream summary block and append a row to `results.tsv`.
+4. Resolve the run tag from an explicit user value or generate a sortable one when `prepare`, `baseline`, or `agent-loop` starts a brand-new run.
+5. Seed `<workspace>/<run_tag>/repo` from the upstream-root allowlist when that run tag is first created.
+6. Initialize git state for that workspace repo and ensure the branch `autoresearch/<run_tag>` exists from local `master`.
+7. Surface `program.md` so the human can steer the agent loop for that run tag.
+8. Warm the upstream cache with `uv run prepare.py` when needed.
+9. Run `uv run train.py` directly for a deterministic smoke or via a Claude prompt that follows the upstream loop contract.
+10. Persist inspection artifacts (`results.tsv`, logs, git state summary) so operators can resume or audit a run from repo-local commands.
 
 ## Knowledge System
 

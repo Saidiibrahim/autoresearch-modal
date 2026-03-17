@@ -17,14 +17,17 @@ Run these when the Modal runtime, settings, prompt, or orchestration path change
 ```bash
 uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::prepare_autoresearch_run --run-tag <tag> --num-shards 10
 uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::run_autoresearch_baseline --run-tag <tag>
-uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app::run_autoresearch_with_claude --run-tag <tag>
+uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode get-program --run-tag <tag>
+uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode inspect --run-tag <tag> --lines 20
+uv run --python 3.11 modal run -m agent_sandbox.autoresearch_app --mode agent-loop --run-tag <tag> --max-experiments 1 --max-turns 40
 ```
 
 ## Expectations
 
 - Keep Python 3.11 for local Modal CLI calls.
 - Treat the direct baseline as the fastest end-to-end smoke.
-- Treat the Claude-driven baseline as the full agent workflow proof when secrets are present.
+- Treat the agent loop as the primary workflow proof when secrets are present.
+- Treat the legacy one-shot Claude baseline as a support/debug surface, not the product-defining path.
 - Record new evidence in the relevant completed plan or runbook update.
 
 ## Failure Handling
