@@ -1,54 +1,54 @@
-# autoresearch
+# autoresearch-modal
 
----
+`autoresearch-modal` is an adaptation of [`karpathy/autoresearch`](https://github.com/karpathy/autoresearch) with a [`Modal`](https://modal.com) runtime for running autonomous training experiments on NVIDIA GPUs.
 
-This is an adaptation of [karpathy/autoresearch](https://github.com/karpathy/autoresearch) with a [Modal](https://modal.com) runtime for running autonomous training runs on NVIDIA GPUs.
+This repository keeps the upstream research files at the repo root and adds the
+project-specific pieces needed to operate that workflow on Modal:
 
----
+- a dedicated developer CLI: `autoresearch-modal`
+- persistent workspace and cache volumes keyed by `run_tag`
+- repo-owned inspection and log surfaces
+- repo-local architecture, product, and operator documentation
 
-![teaser](progress.png)
+It is intentionally narrow in scope. This repo is not a general-purpose agent
+sandbox or a web product.
 
-_One day, frontier AI research used to be done by meat computers in between eating, sleeping, having other fun, and synchronizing once in a while using sound wave interconnect in the ritual of "group meeting". That era is long gone. Research is now entirely the domain of autonomous swarms of AI agents running across compute cluster megastructures in the skies. The agents claim that we are now in the 10,205th generation of the code base, in any case no one could tell if that's right or wrong as the "code" is now a self-modifying binary that has grown beyond human comprehension. This repo is the story of how it all began. -@karpathy, March 2026_.
+## What This Repo Owns
 
-The idea: give an AI agent a small but real LLM training setup and let it experiment autonomously overnight. It modifies the code, trains for 5 minutes, checks if the result improved, keeps or discards, and repeats. You wake up in the morning to a log of experiments and (hopefully) a better model. The training code here is a simplified single-GPU implementation of [nanochat](https://github.com/karpathy/nanochat). The core idea is that you're not touching any of the Python files like you normally would as a researcher. Instead, you are programming the `program.md` Markdown files that provide context to the AI agents and set up your autonomous research org. The default `program.md` in this repo is intentionally kept as a bare bones baseline, though it's obvious how one would iterate on it over time to find the "research org code" that achieves the fastest research progress, how you'd add more agents to the mix, etc. A bit more context on this project is here in this [tweet](https://x.com/karpathy/status/2029701092347630069).
+The upstream training contract still matters:
 
-## How it works
+- `prepare.py` handles fixed data prep, tokenizer creation, and evaluation
+  helpers
+- `train.py` is the file the autonomous loop edits
+- `program.md` is the human-controlled control plane for the research run
 
-The repo is deliberately kept small and only really has three files that matter:
+`autoresearch-modal` adds the wrapper around that contract:
 
-- **`prepare.py`** — fixed constants, one-time data prep (downloads training data, trains a BPE tokenizer), and runtime utilities (dataloader, evaluation). Not modified.
-- **`train.py`** — the single file the agent edits. Contains the full GPT model, optimizer (Muon + AdamW), and training loop. Everything is fair game: architecture, hyperparameters, optimizer, batch size, etc. **This file is edited and iterated on by the agent**.
-- **`program.md`** — baseline instructions for one agent. Point your agent here and let it go. **This file is edited and iterated on by the human**.
+- `cli/` exposes the public command surface
+- `agent_sandbox/autoresearch_app.py` defines the Modal entrypoint and runtime
+  orchestration
+- `agent_sandbox/config/settings.py` holds typed runtime settings and secret
+  wiring
+- `docs/` carries the product spec, architecture notes, runbook, and execution
+  plans
 
-By design, training runs for a **fixed 5-minute time budget** (wall clock, excluding startup/compilation), regardless of the details of your compute. The metric is **val_bpb** (validation bits per byte) — lower is better, and vocab-size-independent so architectural changes are fairly compared.
+## Runtime Model
 
-If you are new to neural networks, this ["Dummy's Guide"](https://x.com/hooeem/status/2030720614752039185) looks pretty good for a lot more context.
+Each experiment series lives in a persistent workspace identified by a
+`run_tag`.
 
-## Quick start
+- `prepare`, `baseline`, and `run` can create a fresh sortable `run_tag` when
+  you omit `--run-tag`
+- `program get`, `program set`, `inspect`, `tail`, and `claude-baseline`
+  require an explicit existing `run_tag`
+- experiment branches inside the seeded workspace follow
+  `autoresearch/<run_tag>` from upstream `master`
+- the human edits `program.md`; the agent loop edits `train.py`
 
-**Requirements:** A single NVIDIA GPU (tested on H100), Python 3.11+, [uv](https://docs.astral.sh/uv/).
+Each run workspace is seeded from an explicit vendored-root allowlist so the
+workspace repo stays upstream-shaped instead of copying wrapper-owned files.
 
-```bash
-# 1. Install uv project manager (if you don't already have it)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Install dependencies
-uv sync --python 3.11
-
-# 3. Download data and train tokenizer (one-time, ~2 min)
-uv run prepare.py
-
-# 4. Manually run a single training experiment (~5 min)
-uv run train.py
-```
-
-If the above commands all work ok, your setup is working and you can go into autonomous research mode.
-
-## Modal runtime
-
-This repo also carries a dedicated Modal runtime so persistent Modal workspaces per chosen `run_tag` are seeded from an explicit upstream-root allowlist.
-
-Seeded workspace root entries (`/home/agent/workspaces/autoresearch/<run_tag>/repo`):
+Seeded repo root entries:
 
 - `.gitignore`
 - `.python-version`
@@ -61,90 +61,130 @@ Seeded workspace root entries (`/home/agent/workspaces/autoresearch/<run_tag>/re
 - `train.py`
 - `uv.lock`
 
-Wrapper-owned repo surfaces such as `AGENTS.md`, `ARCHITECTURE.md`, `agent_sandbox/`, `docs/`, `scripts/`, and `tests/` are intentionally kept out of seeded run repos.
+Wrapper-owned surfaces such as `AGENTS.md`, `ARCHITECTURE.md`, `agent_sandbox/`,
+`docs/`, `scripts/`, and `tests/` stay in the source repo and are not copied
+into the per-run workspace repo.
 
-Setup:
+## Requirements
+
+- Python 3.11
+- [`uv`](https://docs.astral.sh/uv/)
+- Modal configured locally
+- a Modal GPU target for live runs (default runtime is H100)
+- an Anthropic secret in Modal for Claude-driven commands
+
+The direct `baseline` path does not require Anthropic credentials.
+
+## Setup
 
 ```bash
 uv sync --group dev --python 3.11
-uv run --python 3.11 modal setup
-uv run --python 3.11 modal secret create anthropic-secret ANTHROPIC_API_KEY=your_key_here
+source .venv/bin/activate
+modal setup
+modal secret create anthropic-secret ANTHROPIC_API_KEY=your_key_here
 ```
 
-Developer CLI:
+The commands below assume you have already activated the repo virtualenv with
+`source .venv/bin/activate`.
+
+## Quick Start
+
+The correct public CLI order is:
+
+```mermaid
+flowchart LR
+    probe["probe<br/>verify image and CLI"] --> prepare["prepare<br/>create workspace and return run_tag"]
+    prepare --> program["program get/set<br/>review or update program.md"]
+    program --> baseline["baseline<br/>run direct smoke on the prepared workspace"]
+    baseline --> run["run<br/>start the Claude-driven experiment loop"]
+    run --> inspect["inspect / tail<br/>review logs, git state, and results"]
+```
+
+1. Probe the CLI and runtime image before creating any run state:
 
 ```bash
-uv run autoresearch-modal probe
-uv run autoresearch-modal prepare --num-shards 10
-uv run autoresearch-modal program get --run-tag <returned-run-tag>
-uv run autoresearch-modal program set --run-tag <returned-run-tag> --file ./program.md
-uv run autoresearch-modal baseline --run-tag <returned-run-tag>
-uv run autoresearch-modal run --run-tag <returned-run-tag> --max-experiments 12 --max-turns 200
-uv run autoresearch-modal inspect --run-tag <returned-run-tag> --lines 30
-uv run autoresearch-modal tail --run-tag <returned-run-tag> --artifact agent --lines 80
-uv run autoresearch-modal claude-baseline --run-tag <returned-run-tag>
+autoresearch-modal probe
 ```
 
-`autoresearch-modal` is the canonical developer-facing interface. It dispatches to the repo's Modal local entrypoint internally, so developers do not need to call `modal run -m ...` directly.
+2. Prepare a fresh workspace and warm the cache:
 
-Append `--dry-run` before or after a subcommand to preview the resolved Modal target, argv, scalar kwargs, and compact file metadata without calling Modal. Example: `uv run autoresearch-modal --dry-run prepare --num-shards 10`.
-
-For first-time `prepare`, `baseline`, and `run` invocations, `--run-tag` is optional. When you omit it, the CLI generates a sortable tag such as `20260317-154233-baseline-a7c3f1`, returns it in the payload, and prints it in the JSON result. Save that `run_tag` for later `inspect`, `tail`, `program get`, `program set`, `claude-baseline`, or resume flows, because those still require an explicit tag.
-
-## Running the agent
-
-Simply spin up your Claude/Codex or whatever you want in this repo (and disable all permissions), then you can prompt something like:
-
-```
-Hi have a look at program.md and let's kick off a new experiment! let's do the setup first.
+```bash
+autoresearch-modal prepare --num-shards 10
 ```
 
-The `program.md` file is essentially a super lightweight "skill".
+That command returns the actual `run_tag`. Save it and use that same tag for
+the rest of the workflow.
 
-For the repo-local docs and operational map, start with:
+3. Inspect or update the run-specific `program.md`:
+
+```bash
+autoresearch-modal program get --run-tag <run_tag>
+autoresearch-modal program set --run-tag <run_tag> --file ./program.md
+```
+
+4. Run one direct baseline smoke on that prepared workspace:
+
+```bash
+autoresearch-modal baseline --run-tag <run_tag>
+```
+
+5. Run the primary Claude-driven experiment loop on the same `run_tag`:
+
+```bash
+autoresearch-modal run --run-tag <run_tag> --max-experiments 12 --max-turns 200
+```
+
+6. Inspect logs, git state, and results:
+
+```bash
+autoresearch-modal inspect --run-tag <run_tag> --lines 30
+autoresearch-modal tail --run-tag <run_tag> --artifact agent --lines 80
+```
+
+The `run` command is also available through the `agent-loop` alias.
+
+For GitHub users, this `probe -> prepare -> program -> baseline -> run ->
+inspect/tail` sequence is the canonical CLI flow. `inspect`, `tail`,
+`program get`, and `program set` require an existing `run_tag`. While
+`prepare`, `baseline`, and `run` can generate a fresh tag automatically, the
+recommended public workflow is to start with `prepare` and keep using the
+returned tag so one workspace is carried through end to end.
+
+## Dry Run Support
+
+Append `--dry-run` before or after any subcommand to preview the resolved Modal
+target, subprocess argv, scalar kwargs, and compact metadata for file-backed
+inputs without contacting Modal.
+
+```bash
+autoresearch-modal --dry-run prepare --num-shards 10
+autoresearch-modal program set --dry-run --run-tag smoke --file ./program.md
+```
+
+## Developer Docs
+
+Start here when working inside the repo:
 
 - `AGENTS.md`
 - `ARCHITECTURE.md`
 - `docs/product-specs/autoresearch-modal.md`
 - `docs/references/autoresearch-modal-runbook.md`
 
-## Project structure
+Those documents are the source of truth for repo scope, runtime behavior, and
+operator commands.
 
+## Validation
+
+```bash
+ruff check --fix .
+ruff format .
+pytest
+autoresearch-modal probe
 ```
-prepare.py      — constants, data prep + runtime utilities (do not modify)
-train.py        — model, optimizer, training loop (agent modifies this)
-program.md      — agent instructions
-pyproject.toml  — dependencies
-```
 
-## Design choices
+## Provenance
 
-- **Single file to modify.** The agent only touches `train.py`. This keeps the scope manageable and diffs reviewable.
-- **Fixed time budget.** Training always runs for exactly 5 minutes, regardless of your specific platform. This means you can expect approx 12 experiments/hour and approx 100 experiments while you sleep. There are two upsides of this design decision. First, this makes experiments directly comparable regardless of what the agent changes (model size, batch size, architecture, etc). Second, this means that autoresearch will find the most optimal model for your platform in that time budget. The downside is that your runs (and results) become not comparable to other people running on other compute platforms.
-- **Self-contained.** No external dependencies beyond PyTorch and a few small packages. No distributed training, no complex configs. One GPU, one file, one metric.
-
-## Platform support
-
-This code currently requires that you have a single NVIDIA GPU. In principle it is quite possible to support CPU, MPS and other platforms but this would also bloat the code. I'm not 100% sure that I want to take this on personally right now. People can reference (or have their agents reference) the full/parent nanochat repository that has wider platform support and shows the various solutions (e.g. a Flash Attention 3 kernels fallback implementation, generic device support, autodetection, etc.), feel free to create forks or discussions for other platforms and I'm happy to link to them here in the README in some new notable forks section or etc.
-
-Seeing as there seems to be a lot of interest in tinkering with autoresearch on much smaller compute platforms than an H100, a few extra words. If you're going to try running autoresearch on smaller computers (Macbooks etc.), I'd recommend one of the forks below. On top of this, here are some recommendations for how to tune the defaults for much smaller models for aspiring forks:
-
-1. To get half-decent results I'd use a dataset with a lot less entropy, e.g. this [TinyStories dataset](https://huggingface.co/datasets/karpathy/tinystories-gpt4-clean). These are GPT-4 generated short stories. Because the data is a lot narrower in scope, you will see reasonable results with a lot smaller models (if you try to sample from them after training).
-2. You might experiment with decreasing `vocab_size`, e.g. from 8192 down to 4096, 2048, 1024, or even - simply byte-level tokenizer with 256 possibly bytes after utf-8 encoding.
-3. In `prepare.py`, you'll want to lower `MAX_SEQ_LEN` a lot, depending on the computer even down to 256 etc. As you lower `MAX_SEQ_LEN`, you may want to experiment with increasing `DEVICE_BATCH_SIZE` in `train.py` slightly to compensate. The number of tokens per fwd/bwd pass is the product of these two.
-4. Also in `prepare.py`, you'll want to decrease `EVAL_TOKENS` so that your validation loss is evaluated on a lot less data.
-5. In `train.py`, the primary single knob that controls model complexity is the `DEPTH` (default 8, here). A lot of variables are just functions of this, so e.g. lower it down to e.g. 4.
-6. You'll want to most likely use `WINDOW_PATTERN` of just "L", because "SSSL" uses alternating banded attention pattern that may be very inefficient for you. Try it.
-7. You'll want to lower `TOTAL_BATCH_SIZE` a lot, but keep it powers of 2, e.g. down to `2**14` (~16K) or so even, hard to tell.
-
-I think these would be the reasonable hyperparameters to play with. Ask your favorite coding agent for help and copy paste them this guide, as well as the full source code.
-
-## Notable forks
-
-- [miolini/autoresearch-macos](https://github.com/miolini/autoresearch-macos) (MacOS)
-- [trevin-creator/autoresearch-mlx](https://github.com/trevin-creator/autoresearch-mlx) (MacOS)
-- [jsegov/autoresearch-win-rtx](https://github.com/jsegov/autoresearch-win-rtx) (Windows)
-
-## License
-
-MIT
+The root research files are vendored from
+[`karpathy/autoresearch`](https://github.com/karpathy/autoresearch), but this
+README intentionally documents only the `autoresearch-modal` wrapper, workflow,
+and operating contract.

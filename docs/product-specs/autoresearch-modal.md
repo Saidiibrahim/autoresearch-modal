@@ -18,6 +18,9 @@ Operators need a small, dependable Modal runtime that preserves the upstream `ka
 - Warm and reuse the upstream cache volume
 - Run one direct GPU baseline smoke
 - Run one Claude-driven autoresearch loop that follows the upstream research contract
+- Keep seeded Modal workspaces on direct `python prepare.py` / `python train.py` execution, not a repo-local `uv run` workflow
+- Preserve read-only follow-up commands as non-mutating views over existing runs
+- Persist structured failure context for Claude-driven runs
 - Expose the workflow through a dedicated developer CLI named `autoresearch-modal`
 - Support dry-run previews from that CLI before a live Modal call
 - Inspect logs, results, and current git state through that CLI
@@ -33,11 +36,11 @@ Operators need a small, dependable Modal runtime that preserves the upstream `ka
 
 1. Probe the Modal environment for required tools.
 2. Prepare a run workspace and cache for a fresh `run_tag`, generating one automatically when the operator omits it.
-3. Read or update `program.md` for that run tag with `program get` and `program set`.
+3. Read or update `program.md` for that run tag with `program get` and `program set`, where `program get` only opens an existing run tag and never bootstraps one implicitly.
 4. Run one direct baseline smoke and append a `results.tsv` row.
 5. Run a Claude-driven agent session that continues autonomous experimentation from the same checkout with `run`.
 6. Preview any command payload with `--dry-run` before a live Modal call when the operator wants to verify arguments or file-backed inputs.
-7. Inspect logs, results, and git state without manually browsing the Modal volume with `inspect` and `tail`.
+7. Inspect logs, results, and git state without manually browsing the Modal volume with `inspect` and `tail`, and fail cleanly if the run tag does not already exist.
 
 ## Success Signals
 
@@ -47,7 +50,10 @@ Operators need a small, dependable Modal runtime that preserves the upstream `ka
 - The operator can steer `program.md` without manually editing files inside Modal.
 - The operator can preview the exact CLI-resolved call payload without touching Modal.
 - The Claude-driven loop follows the upstream human/agent split: human steers `program.md`, agent edits `train.py`.
-- Inspect commands expose the current log/results/git state of a run tag, but still require that explicit tag.
+- The seeded workspace contract remains unambiguous: `python prepare.py` and `python train.py` run directly inside Modal, while local developer commands may still use `uv run autoresearch-modal`.
+- Read-only follow-up commands expose the current log/results/git state of a run tag, still require that explicit tag, and do not create persistent state for unknown tags.
+- Failed Claude-driven runs leave behind enough structured state and recent artifact tails to diagnose the failure from `inspect` or the CLI error output.
+- The Modal runtime does not depend on creating a repo-local `.venv` inside seeded workspaces before Claude can start.
 - Agents can find current product intent from the repo without external context.
 
 ## Constraints

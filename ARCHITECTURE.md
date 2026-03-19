@@ -47,9 +47,11 @@ This repo now carries the upstream research files at the root and adds orchestra
 5. Seed `<workspace>/<run_tag>/repo` from the upstream-root allowlist when that run tag is first created.
 6. Initialize git state for that workspace repo and ensure the branch `autoresearch/<run_tag>` exists from local `master`.
 7. Surface `program.md` so the human can steer the agent loop for that run tag.
-8. Warm the upstream cache with `uv run prepare.py` when needed.
-9. Run `uv run train.py` directly for a deterministic smoke or via a Claude prompt that follows the upstream loop contract.
+8. Warm the upstream cache with `python prepare.py` when needed inside the Modal workspace.
+9. Run `python train.py` directly for a deterministic smoke or via a Claude prompt that follows the upstream loop contract, without creating a repo-local `.venv` or using `uv run` inside the seeded workspace.
 10. Persist inspection artifacts (`results.tsv`, logs, git state summary) so operators can resume or audit a run from the dedicated CLI.
+11. Treat `program get`, `inspect`, and `tail` as read-only surfaces over existing run tags only; they must not seed or mutate missing runs.
+12. Record structured failure context for Claude-driven paths in `modal-run-state.json` so operators can inspect error type plus recent artifact tails after a failed run.
 
 ## Knowledge System
 

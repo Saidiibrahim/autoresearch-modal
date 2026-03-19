@@ -109,7 +109,7 @@ This:
 - checks out `autoresearch/<returned-run-tag>`
 - exposes upstream `program.md` in the prepared checkout
 - creates `results.tsv` if needed
-- runs `uv run prepare.py --num-shards 10` when `~/.cache/autoresearch` is not ready
+- runs `python prepare.py --num-shards 10` when `~/.cache/autoresearch` is not ready
 - keeps Triton, TorchInductor, and uv caches under the mounted cache volume
 - returns the actual `run_tag` in the payload; later `inspect`, `tail`, `program get`, `program set`, `claude-baseline`, or resume flows must use that exact tag
 
@@ -130,6 +130,8 @@ uv run autoresearch-modal program set --run-tag <returned-run-tag> --file ./prog
 ```
 
 This keeps the upstream `program.md` as the human-controlled control plane for that run tag.
+
+`program get` is intentionally read-only: if the run tag does not already exist, it fails instead of seeding a new workspace.
 
 ### 4. Run one direct baseline smoke
 
@@ -152,6 +154,7 @@ This path:
 - reuses the prepared workspace/cache
 - expects the human to have already shaped `program.md`
 - invokes Claude CLI inside the GPU container as the non-root `agent` user
+- uses the image-managed Python runtime inside the seeded workspace; it should not create a repo-local `.venv` or rely on `uv run` for `prepare.py` or `train.py`
 - uses git CLI directly inside the workspace repo
 - follows the upstream research loop more closely: the agent edits `train.py`, runs experiments, logs to `results.tsv`, and keeps or discards changes without human confirmation
 - returns the chosen `run_tag`; keep it if you want to inspect or resume that run later
@@ -166,6 +169,8 @@ uv run autoresearch-modal inspect --run-tag <returned-run-tag> --lines 30
 ```
 
 The inspect payload reports `workspace_seed_source: "vendored-project-root-allowlist"` and `repo_root_files`; use those fields to confirm no wrapper-owned top-level entries leaked into a fresh run repo.
+
+`inspect` and `tail` are also read-only. They require an existing run tag and do not bootstrap missing workspaces.
 
 Tail a specific artifact:
 
@@ -190,11 +195,14 @@ uv run autoresearch-modal claude-baseline --run-tag mar16claude
 - Upstream `autoresearch` currently uses `master`, not `main`.
 - The direct baseline path does not require `ANTHROPIC_API_KEY`; the Claude-driven paths do.
 - `prepare`, `baseline`, and `run` can generate a fresh `run_tag` automatically, but `inspect`, `tail`, `program get`, `program set`, and `claude-baseline` still require an explicit one.
+- `program get`, `inspect`, and `tail` only open existing runs; a typo in `--run-tag` should fail cleanly instead of creating state.
 - `--dry-run` previews the exact CLI-resolved target and kwargs and does not contact Modal.
 - The default GPU is `H100`, configurable through `AUTORESEARCH_GPU`.
 - `prepare.py` writes to `~/.cache/autoresearch`, so the cache volume must stay mounted at that exact path for compatibility with upstream code.
 - `TRITON_CACHE_DIR` and `TORCHINDUCTOR_CACHE_DIR` are redirected into the mounted cache volume. That fixes the non-root permission issue that originally blocked baseline runs.
 - `UV_CACHE_DIR` is also routed into the mounted cache volume so upstream `uv` commands stay warm across sessions.
+- Inside the Modal workspace, direct `python prepare.py` and `python train.py` are the canonical execution commands; Claude prompts should not bootstrap a repo-local `.venv` with `uv sync` or tell the agent to use `uv run`.
+- Claude-driven failures write structured error details, `error_type`, and recent artifact tails into `modal-run-state.json`; the CLI also makes a best-effort follow-up inspect when a run-tagged Claude command fails.
 - In this workspace, `autoresearch-modal` calls were reliable under Python 3.11. A Python 3.14-created `.venv` triggered a local `grpclib` assertion before requests reached Modal.
 - The repo is versioned locally, but the experiment git state that matters lives inside the per-run workspace repo on the workspace volume.
 - The wrapper intentionally keeps the human/agent split from upstream: the human edits `program.md`; the agent loop edits `train.py`.
