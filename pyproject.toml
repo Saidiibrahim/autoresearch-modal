@@ -23,11 +23,14 @@ dependencies = [
     "torch==2.9.1",
 ]
 
+[project.scripts]
+autoresearch-modal = "cli.main:main"
+
 [tool.setuptools]
 include-package-data = false
 
 [tool.setuptools.packages.find]
-include = ["agent_sandbox*"]
+include = ["agent_sandbox*", "cli*"]
 
 [tool.ruff]
 line-length = 100
